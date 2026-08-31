@@ -96,7 +96,7 @@ import {
   type ProfileRecord,
   themeOf,
 } from "@/lib/profile";
-import { ConversionCoach } from "@/components/dashboard/ConversionCoach";
+import { ConversionCoachAccordion } from "@/components/studio/ConversionCoachAccordion";
 import { DesignTabEditor } from "@/components/dashboard/DesignTabEditor";
 import {
   Accordion,
@@ -1212,7 +1212,21 @@ export function ProfileEditor({ variant = "verified" }: { variant?: ProfileVaria
                   </span>
                 </AccordionTrigger>
                 <AccordionContent className="space-y-4 pb-5">
-                  <ConversionCoach blocks={blocks} />
+                  <ConversionCoachAccordion
+                    blocks={blocks}
+                    prefs={prefs}
+                    avatarUrl={avatarUrl || null}
+                    bio={tagline || null}
+                    setPref={setPref}
+                    onUpdateBlock={(id, patch) =>
+                      setBlocks((list) =>
+                        list.map((b) => (b.id === id ? { ...b, ...patch } : b)),
+                      )
+                    }
+                    onAddConversionBlock={() => setDrawer(true)}
+                    onOpenSeo={() => setTab("settings")}
+                    onOpenProfileBasics={() => setTab("design")}
+                  />
                 </AccordionContent>
               </AccordionItem>
             </Accordion>

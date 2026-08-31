@@ -94,9 +94,23 @@ export interface ProfileDisplayPrefs {
   visitEffect: VisitEffect;
   /** Favoriete films, series, boeken … met (eigen of opgehaalde) afbeelding. */
   favorites: ProfileFavorite[];
+  /** Conversie Coach: id van het block dat als primaire CTA uitgelicht wordt. */
+  highlightBlockId: string | null;
+  /** Animatiestijl voor die primaire CTA. */
+  highlightStyle: HighlightStyle;
 }
 
 /** Alle designvelden zitten in dezelfde JSON-blob. */
+export type HighlightStyle = "none" | "glow" | "pulse" | "shimmer";
+
+/** Labels voor de highlight-switcher in de Conversie Coach. */
+export const HIGHLIGHT_STYLES: { id: HighlightStyle; label: string; note: string }[] = [
+  { id: "none", label: "Geen", note: "Standaard knop, geen extra aandacht." },
+  { id: "glow", label: "Subtle Glow", note: "Zachte omrandingsgloed." },
+  { id: "pulse", label: "Pulse", note: "Pulserende schaalanimatie." },
+  { id: "shimmer", label: "Shimmer", note: "Lichtflits over de knop." },
+];
+
 export interface ProfileDisplayPrefs extends ProfileDesignPrefs {}
 
 export const DEFAULT_DISPLAY_PREFS: ProfileDisplayPrefs = {
@@ -128,6 +142,8 @@ export const DEFAULT_DISPLAY_PREFS: ProfileDisplayPrefs = {
   vcardLabel: null,
   visitEffect: "none",
   favorites: [],
+  highlightBlockId: null,
+  highlightStyle: "none",
   ...DEFAULT_DESIGN_PREFS,
 };
 
@@ -264,6 +280,12 @@ export function parseDisplayPrefs(raw: unknown): ProfileDisplayPrefs {
     vcardLabel: textOrNull(r["vcardLabel"], 40),
     visitEffect: normalizeVisitEffect(r["visitEffect"]),
     favorites: normalizeFavorites(r["favorites"]),
+    highlightBlockId: textOrNull(r["highlightBlockId"], 60),
+    highlightStyle: oneOf(
+      r["highlightStyle"],
+      ["none", "glow", "pulse", "shimmer"] as const,
+      "none",
+    ),
     ...normalizeDesignPrefs(r),
   };
 }

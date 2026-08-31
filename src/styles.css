@@ -709,3 +709,48 @@ select:focus-visible {
 .rout-frame-spin > svg { animation: rout-frame-spin 14s linear infinite; }
 .rout-frame-flicker { animation: rout-frame-flicker 2s ease-in-out infinite; }
 .rout-frame-shimmer { animation: rout-frame-shimmer 6s ease-in-out infinite; }
+
+/* ---------------------------------------------------------------- */
+/* Conversie Coach — primaire CTA highlight op het publieke profiel   */
+/* ---------------------------------------------------------------- */
+.rout-highlight {
+  position: relative;
+  border-radius: 0.75rem;
+}
+.rout-highlight-glow {
+  box-shadow: 0 0 0 1px currentColor, 0 0 18px 2px color-mix(in srgb, currentColor 45%, transparent);
+}
+.rout-highlight-pulse {
+  animation: rout-highlight-pulse 2s ease-in-out infinite;
+}
+.rout-highlight-shimmer {
+  overflow: hidden;
+}
+.rout-highlight-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, white 55%, transparent) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: rout-highlight-shimmer 2.6s ease-in-out infinite;
+}
+@keyframes rout-highlight-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+@keyframes rout-highlight-shimmer {
+  0% { transform: translateX(-100%); }
+  60%, 100% { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rout-highlight-pulse,
+  .rout-highlight-shimmer::after {
+    animation: none;
+  }
+}
