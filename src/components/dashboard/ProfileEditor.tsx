@@ -1223,8 +1223,16 @@ export function ProfileEditor({ variant = "verified" }: { variant?: ProfileVaria
                         list.map((b) => (b.id === id ? { ...b, ...patch } : b)),
                       )
                     }
+                    publicUrl={
+                      identitySpace === "verified"
+                        ? `rout.be/${handle || claimed || "jouwnaam"}`
+                        : `rout.be/u/${handle || claimed || "jouwnaam"}`
+                    }
+                    displayName={displayName}
+                    verified={verified}
+                    alias={identitySpace === "alias" ? handle || claimed : null}
                     onAddConversionBlock={() => setDrawer(true)}
-                    onOpenSeo={() => setTab("settings")}
+                    onOpenIdentity={() => setTab("settings")}
                     onOpenProfileBasics={() => setTab("design")}
                   />
                 </AccordionContent>

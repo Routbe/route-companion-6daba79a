@@ -1,14 +1,15 @@
 /**
  * Conversie Coach & Optimalisatie — native Studio-paneel.
  *
- * Drie secties: (1) live conversiescore, (2) actiegerichte quick fixes voor elk
- * gezakt auditpunt en (3) highlight/animatie-controls voor de primaire CTA.
- * De audit is puur en deterministisch zodat hij testbaar blijft.
+ * A) conversiescore-gauge, B) dynamische quick-fix kaarten,
+ * C) CTA highlight & animatiestudio (synct live met de preview),
+ * D) WhatsApp / social share preview inspector met inline velden.
  */
 import { useMemo, useState } from "react";
-import { AlertTriangle, Lightbulb, MoveVertical, Sparkles, Zap } from "lucide-react";
+import { AlertTriangle, Lightbulb, MoveVertical, Share2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -16,145 +17,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { conversionTips } from "@/lib/conversion-coach";
-import { BLOCK_KINDS, type ProfileBlock } from "@/lib/profile";
 import {
-  HIGHLIGHT_STYLES,
-  type HighlightStyle,
-  type ProfileDisplayPrefs,
-} from "@/lib/profile-display";
+  conversionTips,
+  evaluateProfileHealth,
+  type AuditCriterion,
+} from "@/lib/conversion-coach";
+import type { ProfileBlock } from "@/lib/profile";
+import { HIGHLIGHT_STYLES, type ProfileDisplayPrefs } from "@/lib/profile-display";
 import { cn } from "@/lib/utils";
-
-/* ----------------------------------------------------------------- audit */
-
-export interface ProfileHealthInput {
-  avatarUrl: string | null | undefined;
-  bio: string | null | undefined;
-  metaTitle: string | null | undefined;
-  metaDescription: string | null | undefined;
-  highlightStyle: HighlightStyle;
-  highlightBlockId: string | null | undefined;
-}
-
-export interface AuditCriterion {
-  id: string;
-  points: number;
-  passed: boolean;
-  title: string;
-  description: string;
-  actionLabel: string;
-  action: "avatar" | "bio" | "social" | "conversion" | "highlight" | "seo";
-}
-
-export interface ProfileHealth {
-  score: number;
-  criteria: AuditCriterion[];
-  failed: AuditCriterion[];
-}
-
-/** Blokken die als "sociale handle" tellen. */
-const SOCIAL_CATEGORIES = new Set(["socials", "featured"]);
-
-/** Componenten die een bezoeker echt laten converteren. */
-const CONVERSION_KINDS = new Set([
-  "booking",
-  "booking_request",
-  "vcard",
-  "contact_form",
-  "shop",
-]);
-
-const categoryOf = (kind: string) => BLOCK_KINDS.find((k) => k.kind === kind)?.category;
-
-/** Berekent de conversiescore (0–100) op basis van zes auditregels. */
-export function evaluateProfileHealth(
-  profile: ProfileHealthInput,
-  links: ProfileBlock[],
-  components: ProfileBlock[] = links,
-): ProfileHealth {
-  const active = links.filter((b) => !b.hidden);
-  const activeComponents = components.filter((b) => !b.hidden);
-
-  const criteria: AuditCriterion[] = [
-    {
-      id: "avatar",
-      points: 15,
-      passed: Boolean(profile.avatarUrl && profile.avatarUrl.trim()),
-      title: "🖼️ Geen profielfoto",
-      description:
-        "Profielen met een gezicht of logo worden merkbaar vaker aangeklikt. Upload een avatar.",
-      actionLabel: "📸 Avatar toevoegen",
-      action: "avatar",
-    },
-    {
-      id: "bio",
-      points: 15,
-      passed: (profile.bio ?? "").trim().length > 20,
-      title: "✍️ Je bio is te kort",
-      description:
-        "Vertel in één zin wie je bent en wat bezoekers hier vinden (minimaal 20 tekens).",
-      actionLabel: "📝 Bio schrijven",
-      action: "bio",
-    },
-    {
-      id: "social",
-      points: 15,
-      passed: active.some((b) => SOCIAL_CATEGORIES.has(categoryOf(b.kind) ?? "")),
-      title: "🔗 Geen sociale handle gekoppeld",
-      description:
-        "Koppel minstens één sociaal account zodat bezoekers je elders kunnen volgen.",
-      actionLabel: "➕ Social toevoegen",
-      action: "social",
-    },
-    {
-      id: "conversion",
-      points: 25,
-      passed: activeComponents.some((b) => CONVERSION_KINDS.has(b.kind)),
-      title: "🔥 Geen hoofddoel ingesteld",
-      description:
-        "Bezoekers weten niet wat ze moeten doen. Voeg een Boekings- of Contactformulier toe.",
-      actionLabel: "⚡ Direct toevoegen",
-      action: "conversion",
-    },
-    {
-      id: "highlight",
-      points: 15,
-      passed:
-        profile.highlightStyle !== "none" &&
-        Boolean(profile.highlightBlockId) &&
-        active.some((b) => b.id === profile.highlightBlockId),
-      title: "✨ Geen link uitgelicht",
-      description:
-        "Geef je belangrijkste knop een gloed of pulse zodat het oog er meteen naartoe gaat.",
-      actionLabel: "🎯 Highlight kiezen",
-      action: "highlight",
-    },
-    {
-      id: "seo",
-      points: 15,
-      passed:
-        Boolean((profile.metaTitle ?? "").trim()) &&
-        Boolean((profile.metaDescription ?? "").trim()),
-      title: "💬 WhatsApp / Social share preview mist",
-      description:
-        "Voeg een pakkende titel en beschrijving toe voor wanneer je link op WhatsApp wordt gedeeld.",
-      actionLabel: "📝 Vul in",
-      action: "seo",
-    },
-  ];
-
-  const score = criteria.reduce((sum, c) => sum + (c.passed ? c.points : 0), 0);
-  return { score, criteria, failed: criteria.filter((c) => !c.passed) };
-}
-
-function scoreVerdict(score: number): string {
-  if (score >= 90) return "Uitstekend — je profiel is klaar om te converteren.";
-  if (score >= 70) return "Sterk profiel, maar er is ruimte voor meer conversie!";
-  if (score >= 40) return "Goed begin. Werk de quick fixes hieronder af.";
-  return "Er valt nog veel te winnen — begin bij je hoofddoel.";
-}
-
-/* -------------------------------------------------------------------- ui */
 
 const TIP_ICON = {
   warning: AlertTriangle,
@@ -162,18 +32,35 @@ const TIP_ICON = {
   info: MoveVertical,
 } as const;
 
+const BAR_TONE = {
+  low: "bg-red-500",
+  mid: "bg-amber-500",
+  high: "bg-emerald-500",
+} as const;
+
+const TEXT_TONE = {
+  low: "text-red-600 dark:text-red-400",
+  mid: "text-amber-600 dark:text-amber-400",
+  high: "text-emerald-600 dark:text-emerald-400",
+} as const;
+
 export interface ConversionCoachAccordionProps {
   blocks: ProfileBlock[];
   prefs: ProfileDisplayPrefs;
   avatarUrl: string | null;
   bio: string | null;
+  /** Publieke URL-weergave, bv. "rout.be/anna". */
+  publicUrl: string;
+  displayName: string;
+  verified: boolean;
+  alias: string | null;
   setPref: <K extends keyof ProfileDisplayPrefs>(key: K, value: ProfileDisplayPrefs[K]) => void;
   onUpdateBlock: (id: string, patch: Partial<ProfileBlock>) => void;
-  /** Opent de component-kiezer (booking / contactformulier) . */
+  /** Opent de component-kiezer (booking / vCard / contactformulier). */
   onAddConversionBlock: () => void;
-  /** Springt naar het Social Sharing & SEO-paneel. */
-  onOpenSeo: () => void;
-  /** Springt naar de avatar/bio-velden in de designtab. */
+  /** Springt naar de identiteitsinstellingen. */
+  onOpenIdentity: () => void;
+  /** Springt naar de avatar/bio-velden. */
   onOpenProfileBasics: () => void;
 }
 
@@ -182,10 +69,14 @@ export function ConversionCoachAccordion({
   prefs,
   avatarUrl,
   bio,
+  publicUrl,
+  displayName,
+  verified,
+  alias,
   setPref,
   onUpdateBlock,
   onAddConversionBlock,
-  onOpenSeo,
+  onOpenIdentity,
   onOpenProfileBasics,
 }: ConversionCoachAccordionProps) {
   const health = useMemo(
@@ -194,43 +85,51 @@ export function ConversionCoachAccordion({
         {
           avatarUrl,
           bio,
+          verified,
+          alias,
           metaTitle: prefs.metaTitle,
-          metaDescription: prefs.metaDescription,
+          ogImageUrl: prefs.ogImageUrl,
           highlightStyle: prefs.highlightStyle,
           highlightBlockId: prefs.highlightBlockId,
         },
         blocks,
       ),
-    [avatarUrl, bio, prefs, blocks],
+    [avatarUrl, bio, verified, alias, prefs, blocks],
   );
   const tips = useMemo(() => conversionTips(blocks), [blocks]);
-  const [focusHighlight, setFocusHighlight] = useState(false);
+  const [focus, setFocus] = useState<"highlight" | "share" | null>(null);
 
   const linkOptions = blocks.filter((b) => !b.hidden && b.kind !== "spacer" && b.kind !== "text");
   const target = linkOptions.find((b) => b.id === prefs.highlightBlockId) ?? null;
 
-  const runAction = (criterion: AuditCriterion) => {
-    switch (criterion.action) {
+  const runAction = (c: AuditCriterion) => {
+    switch (c.action) {
       case "conversion":
-      case "social":
         onAddConversionBlock();
         break;
-      case "seo":
-        onOpenSeo();
+      case "identity":
+        onOpenIdentity();
         break;
       case "avatar":
       case "bio":
         onOpenProfileBasics();
         break;
       case "highlight":
-        setFocusHighlight(true);
+        setFocus("highlight");
+        break;
+      case "share":
+        setFocus("share");
         break;
     }
   };
 
+  const previewTitle = prefs.metaTitle?.trim() || displayName || publicUrl;
+  const previewDesc =
+    prefs.metaDescription?.trim() || bio?.trim() || "Alles van mij op één plek.";
+
   return (
     <div className="space-y-5">
-      {/* 1 — score */}
+      {/* A — score gauge */}
       <section
         aria-label="Conversiescore"
         className="space-y-3 rounded-2xl border border-border bg-background p-4"
@@ -251,21 +150,14 @@ export function ConversionCoachAccordion({
           aria-label="Conversiescore"
         >
           <div
-            className={cn(
-              "h-full rounded-full transition-all duration-500",
-              health.score >= 70
-                ? "bg-emerald-500"
-                : health.score >= 40
-                  ? "bg-amber-500"
-                  : "bg-red-500",
-            )}
+            className={cn("h-full rounded-full transition-all duration-500", BAR_TONE[health.tone])}
             style={{ width: `${health.score}%` }}
           />
         </div>
-        <p className="text-xs text-muted-foreground">{scoreVerdict(health.score)}</p>
+        <p className={cn("text-xs font-medium", TEXT_TONE[health.tone])}>{health.verdict}</p>
       </section>
 
-      {/* 2 — quick fixes */}
+      {/* B — quick fixes */}
       <section aria-label="Quick fixes" className="space-y-2">
         <h3 className="text-sm font-medium">Quick fixes</h3>
         {health.failed.length === 0 ? (
@@ -281,16 +173,15 @@ export function ConversionCoachAccordion({
               >
                 <div className="min-w-0 space-y-1">
                   <p className="text-sm font-medium">{c.title}</p>
-                  <p className="text-xs text-muted-foreground">{c.description}</p>
+                  <p className="text-xs text-muted-foreground">{c.rationale}</p>
                 </div>
                 <Button
                   type="button"
                   size="sm"
                   variant="secondary"
-                  className="shrink-0 gap-1.5 rounded-xl"
+                  className="shrink-0 rounded-xl"
                   onClick={() => runAction(c)}
                 >
-                  <Zap className="h-3.5 w-3.5" aria-hidden />
                   {c.actionLabel}
                 </Button>
               </li>
@@ -316,17 +207,17 @@ export function ConversionCoachAccordion({
         )}
       </section>
 
-      {/* 3 — highlight & animatie */}
+      {/* C — highlight & animatie */}
       <section
-        aria-label="Link highlight"
+        aria-label="CTA highlight studio"
         className={cn(
           "space-y-3 rounded-2xl border bg-background p-4 transition-colors",
-          focusHighlight ? "border-foreground" : "border-border",
+          focus === "highlight" ? "border-foreground" : "border-border",
         )}
       >
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4" aria-hidden />
-          <h3 className="text-sm font-medium">Highlight &amp; animatie</h3>
+          <h3 className="text-sm font-medium">CTA highlight &amp; animatie</h3>
         </div>
 
         <div className="space-y-2">
@@ -352,7 +243,7 @@ export function ConversionCoachAccordion({
         </div>
 
         <div className="space-y-2">
-          <span className="input-label">Highlight-stijl</span>
+          <span className="input-label">Animatiestijl</span>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {HIGHLIGHT_STYLES.map((s) => (
               <button
@@ -372,7 +263,8 @@ export function ConversionCoachAccordion({
             ))}
           </div>
           <p className="text-[11px] text-muted-foreground">
-            {HIGHLIGHT_STYLES.find((s) => s.id === prefs.highlightStyle)?.note}
+            {HIGHLIGHT_STYLES.find((s) => s.id === prefs.highlightStyle)?.note} De preview past dit
+            direct toe.
           </p>
         </div>
 
@@ -385,12 +277,14 @@ export function ConversionCoachAccordion({
             value={target?.badge ?? ""}
             maxLength={20}
             disabled={!target}
-            placeholder={target ? "Nieuw · Populairst · Tip" : "Kies eerst een link"}
-            onChange={(e) => target && onUpdateBlock(target.id, { badge: e.target.value || undefined })}
+            placeholder={target ? "🔥 Populairst · ⚡ Boek nu" : "Kies eerst een link"}
+            onChange={(e) =>
+              target && onUpdateBlock(target.id, { badge: e.target.value || undefined })
+            }
             className="input-field h-11 rounded-xl"
           />
           <div className="flex flex-wrap gap-1.5">
-            {["Nieuw", "Populairst", "Tip"].map((b) => (
+            {["🔥 Populairst", "⚡ Boek nu", "Nieuw", "Tip"].map((b) => (
               <button
                 key={b}
                 type="button"
@@ -402,6 +296,93 @@ export function ConversionCoachAccordion({
               </button>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* D — share preview inspector */}
+      <section
+        aria-label="Share preview inspector"
+        className={cn(
+          "space-y-3 rounded-2xl border bg-background p-4 transition-colors",
+          focus === "share" ? "border-foreground" : "border-border",
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <Share2 className="h-4 w-4" aria-hidden />
+          <h3 className="text-sm font-medium">WhatsApp &amp; social preview</h3>
+        </div>
+
+        {/* mockup */}
+        <div className="rounded-2xl bg-muted/60 p-3">
+          <div className="ml-auto max-w-[19rem] overflow-hidden rounded-xl rounded-br-sm border border-border bg-background shadow-sm">
+            {prefs.ogImageUrl ? (
+              <img
+                src={prefs.ogImageUrl}
+                alt="Voorbeeld van je deelafbeelding"
+                className="aspect-[1.91/1] w-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="flex aspect-[1.91/1] w-full items-center justify-center bg-secondary text-[11px] text-muted-foreground">
+                Geen deelafbeelding
+              </div>
+            )}
+            <div className="space-y-0.5 p-3">
+              <p className="truncate text-xs font-semibold">{previewTitle}</p>
+              <p className="line-clamp-2 text-[11px] text-muted-foreground">{previewDesc}</p>
+              <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
+                {publicUrl}
+              </p>
+            </div>
+          </div>
+          <p className="pt-2 text-center text-[11px] text-muted-foreground">
+            Zo ziet je link eruit in WhatsApp, iMessage en LinkedIn.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="input-label" htmlFor="coach-meta-title">
+            OpenGraph titel
+          </label>
+          <Input
+            id="coach-meta-title"
+            value={prefs.metaTitle ?? ""}
+            maxLength={70}
+            placeholder={displayName || "Jouw naam — alles op één plek"}
+            onChange={(e) => setPref("metaTitle", e.target.value || null)}
+            className="input-field h-11 rounded-xl"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="input-label" htmlFor="coach-meta-desc">
+            OpenGraph beschrijving
+          </label>
+          <Textarea
+            id="coach-meta-desc"
+            value={prefs.metaDescription ?? ""}
+            maxLength={200}
+            rows={2}
+            placeholder="Boek direct een afspraak of bekijk mijn werk."
+            onChange={(e) => setPref("metaDescription", e.target.value || null)}
+            className="input-field rounded-xl"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="input-label" htmlFor="coach-og-image">
+            Deelafbeelding (URL)
+          </label>
+          <Input
+            id="coach-og-image"
+            type="url"
+            inputMode="url"
+            value={prefs.ogImageUrl ?? ""}
+            placeholder="https://…/preview.jpg"
+            onChange={(e) => setPref("ogImageUrl", e.target.value.trim() || null)}
+            className="input-field h-11 rounded-xl"
+          />
+          <p className="text-[11px] text-muted-foreground">Aanbevolen: 1200 × 630 px.</p>
         </div>
       </section>
     </div>
