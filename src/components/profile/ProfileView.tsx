@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { BadgeCheck, Mail, UserPlus, Users } from "lucide-react";
-import { blockHref, isPromoBlock, isWidgetBlock, themeOf, type ProfileRecord } from "@/lib/profile";
+import { blockHref, isPromoBlock, isWidgetBlock, themeOf, type ProfileBlock, type ProfileRecord } from "@/lib/profile";
 import {
   BookingBlock,
   NewsletterBlock,
@@ -112,6 +112,15 @@ export function ProfileView({
     shouldShowWatermark(Boolean(profile.verified), prefs) &&
     (profile.verified ? prefs.showRoutBadge : true);
   const wide = layout === "wide";
+  /** Primary-CTA highlight uit de Conversie Coach (glow / pulse / shimmer). */
+  const withHighlight = (b: ProfileBlock, node: ReactNode): ReactNode =>
+    prefs.highlightStyle !== "none" && prefs.highlightBlockId === b.id ? (
+      <div key={b.id} className={`rout-highlight rout-highlight-${prefs.highlightStyle}`}>
+        {node}
+      </div>
+    ) : (
+      node
+    );
   const earlyBeliever = Boolean(profile.is_early_believer);
   const [showVerifyInfo, setShowVerifyInfo] = useState(false);
   /** Taalpil: auto-detect via de sitetaal, bezoeker mag zelf wisselen. */
@@ -379,6 +388,7 @@ export function ProfileView({
             </p>
           )}
           {blocks.map((b) =>
+            withHighlight(b,
             b.kind === "spacer" ? (
               <div key={b.id} className="h-6 w-full" aria-hidden />
             ) : b.kind === "text" ? (
@@ -471,7 +481,7 @@ export function ProfileView({
               <span className="min-w-0 flex-1 truncate text-center">{b.label}</span>
               <span className="h-4 w-4 shrink-0" aria-hidden />
             </a>
-            ),
+            )),
           )}
         </div>
 
