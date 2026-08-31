@@ -22,11 +22,32 @@ export const Route = createFileRoute("/about")({
     links: canonicalLinks("/about"),
     scripts: jsonLdScript({
       "@context": "https://schema.org",
-      "@type": "Organization",
-      name: "ROUT",
-      url: "https://rout.be",
-      description: DESCRIPTION,
-      logo: "https://rout.be/logo.svg",
+      "@graph": [
+        {
+          "@type": "Organization",
+          name: "ROUT",
+          url: "https://rout.be",
+          description: DESCRIPTION,
+          logo: "https://rout.be/logo.svg",
+          foundingLocation: { "@type": "Place", name: "Brussels, Belgium" },
+          email: "hallo@rout.be",
+          sameAs: ["https://github.com/Routbe"],
+        },
+        {
+          "@type": "AboutPage",
+          name: TITLE,
+          url: "https://rout.be/about",
+          description: DESCRIPTION,
+          primaryImageOfPage: `https://rout.be${OG_IMAGE}`,
+        },
+        {
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "ROUT", item: "https://rout.be" },
+            { "@type": "ListItem", position: 2, name: "Over ROUT", item: "https://rout.be/about" },
+          ],
+        },
+      ],
     }),
   }),
   component: Page,
