@@ -2,10 +2,15 @@ import { useMemo, useState } from "react";
 import {
   ArrowRight,
   BadgeCheck,
+  Coins,
   Download,
+  FileJson,
+  Fingerprint,
   HeartHandshake,
   Mail,
+  MapPin,
   Palette,
+  QrCode,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -17,11 +22,44 @@ import { BUNNY_PATH } from "@/lib/site";
  * Publieke marketingpagina van ROUT.
  *
  * Alles is statisch en server-renderbaar: geen tracking, geen client-side
- * meting, geen cookiemuur. De enige interacties zijn het claimveld en de
- * vCard-download van het officiële @rout profiel.
+ * meting, geen cookiemuur. De enige interacties zijn het claimveld, de
+ * FAQ-accordeon en de vCard-download van het officiële @rout profiel.
+ *
+ * Opbouw: belofte → bewijs → werking → capaciteiten → overtuiging →
+ * vergelijking → prijs → twijfels wegnemen → één afsluitende CTA.
  */
 
 const HANDLE_RE = /[^a-z0-9._-]/g;
+
+/** Harde, controleerbare cijfers direct onder de hero. */
+const PROOF_POINTS = [
+  { icon: ShieldCheck, value: "0", label: "trackers & cookiemuren" },
+  { icon: Coins, value: "0 %", label: "commissie op donaties" },
+  { icon: MapPin, value: "EU", label: "eigen infrastructuur" },
+  { icon: FileJson, value: "1 klik", label: "volledige data-export" },
+] as const;
+
+/** Van niets naar een live profiel — bewust maar drie stappen. */
+const STEPS = [
+  {
+    n: "01",
+    icon: Fingerprint,
+    title: "Claim je naam",
+    body: "Kies rout.be/u/alias en begin gratis. Geen creditcard, geen willekeurige cijfers achter je naam, geen wachtlijst.",
+  },
+  {
+    n: "02",
+    icon: Palette,
+    title: "Bouw je pagina",
+    body: "Links, socials, boekingen, vCard en donaties in de Studio. Elf luxe thema's, live preview, alles versleepbaar.",
+  },
+  {
+    n: "03",
+    icon: QrCode,
+    title: "Deel & verifieer",
+    body: "Exporteer je QR als vector, koppel je eigen domein en haal het blauwe vinkje via bank of eID wanneer je klaar bent.",
+  },
+] as const;
 
 /** Eerlijke vergelijking met de klassieke link-in-bio-diensten. */
 const COMPARISON = [
@@ -81,6 +119,53 @@ const FEATURES = [
     body: "Geverifieerde makers zetten een donatiepagina open op rout.be/naam/donate. Betalen kan met Bancontact, iDEAL, Apple Pay, kaart of overschrijving — en wat je krijgt, blijft van jou.",
     points: ["0 % platformcommissie", "Lokale betaalmethodes", "Directe uitbetaling"],
   },
+] as const;
+
+/** Prijstransparantie — geen verborgen abonnementstrap. */
+const PRICING = [
+  {
+    title: "Altijd gratis",
+    body: "Je profiel, je links, onbeperkte QR-codes, thema's en de volledige data-export.",
+  },
+  {
+    title: "Betaal per gebruik",
+    body: "SecureShield™ relay vanaf €0,09 per maand uit je prepaid saldo. Stop wanneer je wil.",
+  },
+  {
+    title: "Nooit commissie",
+    body: "Donaties en tips gaan rechtstreeks naar jou. ROUT houdt niets in op wat je verdient.",
+  },
+] as const;
+
+const FAQ = [
+  {
+    q: "Is ROUT echt gratis?",
+    a: "Ja. Een profiel, je links en je QR-codes kosten niets en blijven gratis. Enkel extra's zoals de SecureShield™ mailrelay betaal je per maand uit een prepaid saldo — nooit via een automatisch abonnement.",
+  },
+  {
+    q: "Wat gebeurt er met mijn gegevens?",
+    a: "We bewaren enkel wat een profiel nodig heeft en verkopen niets door. Er staan geen trackers of advertentiescripts op je pagina en bezoekersstatistieken zijn geaggregeerd, zonder cookies of individuele profielen.",
+  },
+  {
+    q: "Kan ik mijn profiel meenemen als ik stop?",
+    a: "Altijd. Eén klik exporteert je volledige profiel als .json, je QR-codes blijven werken zolang je eigen domein bestaat, en verwijderen doe je zelf zonder mailtjes of wachttijd.",
+  },
+  {
+    q: "Waarom rout.be/u/alias en niet meteen mijn naam?",
+    a: "Directe rout.be/naam-adressen zijn gereserveerd voor geverifieerde leden. Zo blijft een schone naam een echt signaal en kan niemand zich zomaar als jou voordoen.",
+  },
+  {
+    q: "Waar draait ROUT?",
+    a: "Op eigen infrastructuur in Europa, gebouwd en beheerd vanuit Brussel. Geen doorverkoop aan advertentienetwerken, geen data die zonder reden de EU verlaat.",
+  },
+] as const;
+
+/** Verdiepende pagina's — houdt de about-pagina kort maar volledig. */
+const FURTHER_READING = [
+  { to: "/manifesto", title: "Het manifest", body: "Waar we voor staan, in vijf principes." },
+  { to: "/sovereignty", title: "Soevereiniteit", body: "Hoe eigenaarschap technisch is geregeld." },
+  { to: "/self-hosting", title: "Self-hosting", body: "ROUT op je eigen server draaien." },
+  { to: "/privacy", title: "Privacybeleid", body: "Wat we bewaren en wat juist niet." },
 ] as const;
 
 const ROUT_VCARD = [
@@ -200,19 +285,32 @@ function ComparisonMatrix() {
       {/* Desktop: vaste 3-koloms tabel */}
       <div className="mt-8 hidden overflow-hidden rounded-xl border border-border md:block">
         <table className="w-full table-fixed text-sm">
+          <caption className="sr-only">
+            Vergelijking tussen klassieke link-in-bio-tools en ROUT
+          </caption>
           <thead>
             <tr className="bg-muted/50 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              <th className="w-1/3 p-4 font-semibold">Functie</th>
-              <th className="w-1/3 p-4 font-semibold">Klassieke link-tools</th>
-              <th className="w-1/3 p-4 font-semibold">ROUT</th>
+              <th scope="col" className="w-1/3 p-4 font-semibold">
+                Functie
+              </th>
+              <th scope="col" className="w-1/3 p-4 font-semibold">
+                Klassieke link-tools
+              </th>
+              <th scope="col" className="w-1/3 p-4 font-semibold text-foreground">
+                ROUT
+              </th>
             </tr>
           </thead>
           <tbody>
             {COMPARISON.map((row) => (
               <tr key={row.feature} className="border-t border-border align-top">
-                <td className="w-1/3 p-4 font-medium text-foreground">{row.feature}</td>
+                <th scope="row" className="w-1/3 p-4 text-left font-medium text-foreground">
+                  {row.feature}
+                </th>
                 <td className="w-1/3 p-4 text-muted-foreground">{row.others}</td>
-                <td className="w-1/3 p-4 text-foreground">{row.rout}</td>
+                <td className="w-1/3 bg-emerald-500/5 p-4 font-medium text-foreground">
+                  {row.rout}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -259,7 +357,7 @@ function HandleClaim() {
         window.location.assign(target);
       }}
     >
-      <div className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-2 shadow-sm transition-shadow focus-within:shadow-md sm:flex-row sm:items-center">
         <label htmlFor="claim-handle" className="sr-only">
           Kies je handle
         </label>
@@ -272,6 +370,7 @@ function HandleClaim() {
             placeholder="jouwnaam"
             autoComplete="off"
             spellCheck={false}
+            aria-describedby="claim-handle-hint"
             className="min-w-0 flex-1 bg-transparent py-2.5 font-mono text-sm text-foreground outline-none placeholder:text-muted-foreground/60"
           />
         </div>
@@ -283,7 +382,7 @@ function HandleClaim() {
           <ArrowRight className="h-4 w-4" aria-hidden />
         </button>
       </div>
-      <p className="mt-2 px-2 text-xs text-muted-foreground">
+      <p id="claim-handle-hint" className="mt-2 px-2 text-xs text-muted-foreground">
         Enkel kleine letters, cijfers, punt, streepje en liggend streepje. Nooit willekeurige
         cijfers achter je naam.
       </p>
@@ -292,19 +391,21 @@ function HandleClaim() {
 }
 
 const CARD = "rounded-3xl border border-border/80 bg-card/90 p-6 shadow-sm sm:p-8";
+const SECTION = "mt-16 sm:mt-24 scroll-mt-24";
 
 export default function About() {
   return (
     <AppLayout crumbs={[{ label: "Over ROUT" }]}>
       {/* pb-28 houdt de laatste CTA vrij van de footer en de zwevende knop */}
       <div className="mx-auto max-w-5xl px-4 py-12 pb-28 sm:px-6 sm:py-20">
+        {/* ---------------------------------------------------- hero */}
         <section className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr]">
-          <div>
+          <div className="animate-fade-in-up">
             <span className="eyebrow">Soevereine digitale identiteit</span>
-            <h1 className="mb-4 mt-2 font-serif text-2xl font-medium leading-tight tracking-tight text-foreground sm:text-4xl">
+            <h1 className="mb-4 mt-2 font-serif text-3xl font-medium leading-[1.1] tracking-tight text-foreground sm:text-5xl">
               Het soevereine alternatief voor je digitale identiteit en link-in-bio.
             </h1>
-            <p className="max-w-xl font-sans text-base text-muted-foreground sm:text-lg">
+            <p className="max-w-xl text-balance font-sans text-base leading-relaxed text-muted-foreground sm:text-lg">
               Eén rustige pagina met je naam, je links, je verificatie en je donaties. Europese
               infrastructuur, geen advertenties, geen trackers, geen datahandel — en jij houdt de
               sleutels.
@@ -325,49 +426,121 @@ export default function About() {
           <RoutProfileCard />
         </section>
 
-        <section className="mt-20 grid gap-4 sm:mt-28 sm:grid-cols-2">
-          {FEATURES.map(({ icon: Icon, ...feature }) => (
-            <article key={feature.title} className={CARD}>
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-background">
-                <Icon className="h-4 w-4 text-foreground" aria-hidden />
-              </span>
-              <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                {feature.eyebrow}
-              </p>
-              <h2 className="mt-1 font-serif text-xl font-semibold text-foreground sm:text-2xl">
-                {feature.title}
-              </h2>
-              <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">
-                {feature.body}
-              </p>
-              <ul className="mt-4 space-y-1.5">
-                {feature.points.map((point) => (
-                  <li key={point} className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <span
-                      aria-hidden
-                      className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-foreground/50"
-                    />
-                    {point}
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
+        {/* ------------------------------------------------ bewijs */}
+        <section aria-label="Kerncijfers" className="mt-14 sm:mt-20">
+          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-3xl border border-border/80 bg-border/60 sm:grid-cols-4">
+            {PROOF_POINTS.map(({ icon: Icon, value, label }) => (
+              <div key={label} className="bg-card px-4 py-6 text-center sm:px-5">
+                <Icon className="mx-auto h-4 w-4 text-muted-foreground" aria-hidden />
+                <dt className="sr-only">{label}</dt>
+                <dd>
+                  <span className="mt-3 block font-serif text-2xl font-medium text-foreground sm:text-3xl">
+                    {value}
+                  </span>
+                  <span className="mt-1 block text-[11px] leading-snug text-muted-foreground">
+                    {label}
+                  </span>
+                </dd>
+              </div>
+            ))}
+          </dl>
         </section>
 
-        <section className={`mt-16 ${CARD}`}>
+        {/* -------------------------------------------- hoe het werkt */}
+        <section className={SECTION} aria-labelledby="about-steps">
+          <span className="eyebrow">In drie stappen</span>
+          <h2
+            id="about-steps"
+            className="mt-2 font-serif text-2xl font-semibold text-foreground sm:text-3xl"
+          >
+            Van naam naar live profiel in enkele minuten
+          </h2>
+          <ol className="mt-8 grid gap-4 sm:grid-cols-3">
+            {STEPS.map(({ icon: Icon, ...step }) => (
+              <li
+                key={step.n}
+                className="group relative rounded-3xl border border-border/80 bg-card/90 p-6 shadow-sm transition-colors hover:border-foreground/30"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-background">
+                    <Icon className="h-4 w-4 text-foreground" aria-hidden />
+                  </span>
+                  <span aria-hidden className="font-mono text-xs text-muted-foreground/70">
+                    {step.n}
+                  </span>
+                </div>
+                <h3 className="mt-4 font-serif text-lg font-semibold text-foreground">
+                  {step.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        {/* --------------------------------------------- capaciteiten */}
+        <section className={SECTION} aria-labelledby="about-features">
+          <span className="eyebrow">Wat je krijgt</span>
+          <h2
+            id="about-features"
+            className="mt-2 font-serif text-2xl font-semibold text-foreground sm:text-3xl"
+          >
+            Alles wat een profiel nodig heeft — en niets wat je tegen je gebruikt
+          </h2>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            {FEATURES.map(({ icon: Icon, ...feature }) => (
+              <article key={feature.title} className={CARD}>
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-background">
+                  <Icon className="h-4 w-4 text-foreground" aria-hidden />
+                </span>
+                <p className="mt-4 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                  {feature.eyebrow}
+                </p>
+                <h3 className="mt-1 font-serif text-xl font-semibold text-foreground sm:text-2xl">
+                  {feature.title}
+                </h3>
+                <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">
+                  {feature.body}
+                </p>
+                <ul className="mt-4 space-y-1.5">
+                  {feature.points.map((point) => (
+                    <li
+                      key={point}
+                      className="flex items-start gap-2 text-sm text-muted-foreground"
+                    >
+                      <span
+                        aria-hidden
+                        className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-foreground/50"
+                      />
+                      {point}
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* ------------------------------------- overtuiging + matrix */}
+        <section className={`${SECTION} ${CARD}`} aria-labelledby="about-why">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             Onafhankelijk &amp; soeverein
           </p>
-          <h2 className="mt-2 font-serif text-xl font-semibold text-foreground sm:text-2xl">
+          <h2
+            id="about-why"
+            className="mt-2 font-serif text-2xl font-semibold text-foreground sm:text-3xl"
+          >
             Waarom we ROUT gebouwd hebben
           </h2>
-          <div className="mt-4 grid gap-5 sm:grid-cols-2">
+          <blockquote className="mt-5 border-l-2 border-foreground/20 pl-4 font-serif text-lg leading-snug text-foreground sm:text-xl">
+            “Je online identiteit hoort niet thuis bij een advertentiebedrijf.”
+          </blockquote>
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
             <p className="text-[15px] leading-relaxed text-muted-foreground">
-              Je online identiteit hoort niet thuis bij een advertentiebedrijf. De meeste
-              link-in-bio-diensten leven van meten, profileren en doorverkopen: elke klik wordt een
-              datapunt, elk profiel een advertentieplaats. ROUT is het tegenovergestelde — geen
-              trackers, geen cookiemuur, geen algoritme dat bepaalt wie jouw links te zien krijgt.
+              De meeste link-in-bio-diensten leven van meten, profileren en doorverkopen: elke klik
+              wordt een datapunt, elk profiel een advertentieplaats. ROUT is het tegenovergestelde —
+              geen trackers, geen cookiemuur, geen algoritme dat bepaalt wie jouw links te zien
+              krijgt.
             </p>
             <p className="text-[15px] leading-relaxed text-muted-foreground">
               We draaien op eigen infrastructuur in Europa, bewaren enkel wat een profiel nodig
@@ -380,42 +553,108 @@ export default function About() {
           <ComparisonMatrix />
         </section>
 
-        <section className="mt-10 rounded-3xl border border-border bg-foreground p-6 text-center text-background shadow-sm sm:p-8">
-          <h2 className="font-serif text-xl font-semibold sm:text-2xl">
-            Claim jouw soevereine handle
-          </h2>
-          <p className="mx-auto mt-2 max-w-lg text-sm opacity-80">
-            rout.be/jouwnaam — gratis, zonder tracking, met vector-QR en eigen domein wanneer je
-            eraan toe bent.
-          </p>
-          <Link
-            to="/auth"
-            className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-background px-6 text-sm font-medium text-foreground transition-opacity hover:opacity-90"
+        {/* ---------------------------------------------------- prijs */}
+        <section className={SECTION} aria-labelledby="about-pricing">
+          <span className="eyebrow">Transparante prijs</span>
+          <h2
+            id="about-pricing"
+            className="mt-2 font-serif text-2xl font-semibold text-foreground sm:text-3xl"
           >
-            Claim je handle
-            <ArrowRight className="h-4 w-4" aria-hidden />
-          </Link>
+            Geen abonnementstrap, geen verrassingen
+          </h2>
+          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+            {PRICING.map((tier) => (
+              <div
+                key={tier.title}
+                className="rounded-3xl border border-border/80 bg-card/90 p-6 shadow-sm"
+              >
+                <h3 className="font-serif text-lg font-semibold text-foreground">{tier.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{tier.body}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
-        <section className={`mt-10 text-center ${CARD}`}>
-          <h2 className="font-serif text-xl font-semibold text-foreground sm:text-2xl">
-            Klaar om je naam te claimen?
+        {/* ------------------------------------------------------ faq */}
+        <section className={SECTION} aria-labelledby="about-faq">
+          <span className="eyebrow">Veelgestelde vragen</span>
+          <h2
+            id="about-faq"
+            className="mt-2 font-serif text-2xl font-semibold text-foreground sm:text-3xl"
+          >
+            Nog twijfels? Terecht.
           </h2>
-          <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
-            Gratis beginnen, later verifiëren. Je profiel blijft van jou — exporteerbaar,
-            verwijderbaar en zonder platformcommissie op wat je verdient.
+          <div className="mt-8 overflow-hidden rounded-3xl border border-border/80 bg-card/90 shadow-sm">
+            {FAQ.map((item, i) => (
+              <details
+                key={item.q}
+                className={`group px-5 py-4 sm:px-6 ${i > 0 ? "border-t border-border" : ""}`}
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left text-[15px] font-medium text-foreground marker:hidden">
+                  {item.q}
+                  <span
+                    aria-hidden
+                    className="shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-45"
+                  >
+                    +
+                  </span>
+                </summary>
+                <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                  {item.a}
+                </p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        {/* --------------------------------------------- verder lezen */}
+        <section className={SECTION} aria-labelledby="about-more">
+          <h2 id="about-more" className="eyebrow">
+            Verder lezen
+          </h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {FURTHER_READING.map((page) => (
+              <Link
+                key={page.to}
+                to={page.to}
+                className="group rounded-2xl border border-border/80 bg-card/90 p-4 shadow-sm transition-colors hover:border-foreground/30 hover:bg-accent"
+              >
+                <p className="flex items-center justify-between gap-2 text-sm font-medium text-foreground">
+                  {page.title}
+                  <ArrowRight
+                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+                    aria-hidden
+                  />
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{page.body}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* ------------------------------------------ afsluitende CTA */}
+        <section
+          className={`${SECTION} rounded-3xl border border-border bg-foreground p-8 text-center text-background shadow-sm sm:p-12`}
+          aria-labelledby="about-cta"
+        >
+          <h2 id="about-cta" className="font-serif text-2xl font-semibold sm:text-3xl">
+            Claim jouw soevereine handle
+          </h2>
+          <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed opacity-80">
+            rout.be/jouwnaam — gratis beginnen, later verifiëren. Vector-QR, eigen domein en 0 %
+            commissie op wat je verdient. Je profiel blijft van jou: exporteerbaar en verwijderbaar.
           </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <Link
               to="/auth"
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-foreground px-6 text-sm font-medium text-background transition-opacity hover:opacity-90"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-background px-6 text-sm font-medium text-foreground transition-opacity hover:opacity-90"
             >
               Maak je profiel
               <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
             <Link
               to="/verify"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-6 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-background/30 px-6 text-sm font-medium text-background transition-colors hover:bg-background/10"
             >
               Hoe verificatie werkt
             </Link>
